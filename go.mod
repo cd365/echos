@@ -1,4 +1,4 @@
-module github.com/cd365/echos
+module github.com/cd365/echos/v4
 
 go 1.21.3
 

@@ -28,7 +28,7 @@ type Ctx struct {
 
 	status int // http status code
 
-	OfCode  int         `json:"code" xml:"cod" validate:"required,min=0"`                         // 业务状态码
+	OfCode  int         `json:"code" xml:"code" validate:"required,min=0"`                        // 业务状态码
 	OfMsg   string      `json:"msg" xml:"msg" validate:"required"`                                // 业务描述语
 	OfBag   interface{} `json:"bag,omitempty" xml:"bag,omitempty" validate:"omitempty"`           // 业务数据包
 	OfCount *int64      `json:"count,omitempty" xml:"count,omitempty" validate:"omitempty,min=0"` // 业务数据总条数
