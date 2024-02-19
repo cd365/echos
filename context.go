@@ -7,31 +7,37 @@ import (
 )
 
 const (
-	CodeSuccess = 0
-	CodeFail    = 1
-	CodeError   = 2
+	CodeSuccess  = 0
+	CodeFail     = 1
+	CodeError    = 2
+	CodeAbnormal = 3
+	CodeBad      = 4
 )
 
 const (
 	MsgSuccess = "SUCCESS"
 )
 
+type Resp struct {
+	Code  int         `json:"code" xml:"code" validate:"required,min=0"`                        // 业务状态码
+	Msg   string      `json:"msg" xml:"msg" validate:"required"`                                // 业务描述语
+	Bag   interface{} `json:"bag,omitempty" xml:"bag,omitempty" validate:"omitempty"`           // 业务数据包
+	Count *int64      `json:"count,omitempty" xml:"count,omitempty" validate:"omitempty,min=0"` // 业务数据总条数
+}
+
 type Ctx struct {
-	echo.Context `json:"-" xml:"-" validate:"-"`
+	echo.Context
 
 	logger echo.Logger
 
-	ReqId string `json:"-" xml:"-" validate:"-"` // request id
+	ReqId string // request id
 
-	Uid    int64  `json:"-" xml:"-" validate:"-"` // store account id for int64 type
-	UidStr string `json:"-" xml:"-" validate:"-"` // store account id for string type
+	Uid    int64  // store account id for int64 type
+	UidStr string // store account id for string type
 
 	status int // http status code
 
-	OfCode  int         `json:"code" xml:"code" validate:"required,min=0"`                        // 业务状态码
-	OfMsg   string      `json:"msg" xml:"msg" validate:"required"`                                // 业务描述语
-	OfBag   interface{} `json:"bag,omitempty" xml:"bag,omitempty" validate:"omitempty"`           // 业务数据包
-	OfCount *int64      `json:"count,omitempty" xml:"count,omitempty" validate:"omitempty,min=0"` // 业务数据总条数
+	Resp *Resp // response content
 }
 
 func NewCtx(
@@ -41,6 +47,7 @@ func NewCtx(
 	return &Ctx{
 		Context: context,
 		logger:  logger,
+		Resp:    &Resp{},
 	}
 }
 
@@ -50,27 +57,27 @@ func (s *Ctx) Status(status int) *Ctx {
 }
 
 func (s *Ctx) Code(cod int) *Ctx {
-	s.OfCode = cod
+	s.Resp.Code = cod
 	return s
 }
 
 func (s *Ctx) Msg(msg string) *Ctx {
-	s.OfMsg = msg
+	s.Resp.Msg = msg
 	return s
 }
 
 func (s *Ctx) Bag(bag interface{}) *Ctx {
-	s.OfBag = bag
+	s.Resp.Bag = bag
 	return s
 }
 
 func (s *Ctx) Count(count int64) *Ctx {
-	s.OfCount = &count
+	s.Resp.Count = &count
 	return s
 }
 
 func (s *Ctx) Json() error {
-	return s.JSON(s.status, s)
+	return s.JSON(s.status, s.Resp)
 }
 
 func (s *Ctx) Ok() error {
@@ -78,12 +85,15 @@ func (s *Ctx) Ok() error {
 }
 
 func (s *Ctx) Bad(err error) error {
-	return s.Status(http.StatusOK).Code(400000).Msg(err.Error()).Json()
+	if s.logger != nil && err != nil {
+		s.logger.Warnf("http request(%s) bad: %s", s.Context.Path(), err.Error())
+	}
+	return s.Status(http.StatusOK).Code(CodeBad).Msg(err.Error()).Json()
 }
 
 func (s *Ctx) Err(err error) error {
 	if s.logger != nil && err != nil {
-		s.logger.Error(err.Error())
+		s.logger.Errorf("http request(%s) error: %s", s.Context.Path(), err.Error())
 	}
 	return s.Status(http.StatusInternalServerError).Code(CodeError).Msg(http.StatusText(http.StatusInternalServerError)).Json()
 }
