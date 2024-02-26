@@ -2,6 +2,7 @@ package echos
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -59,7 +60,7 @@ func (s *Middleware) Logger(next echo.HandlerFunc) echo.HandlerFunc {
 		method := c.Request().Method
 		status := c.Response().Status
 		ip := c.RealIP()
-		defer s.log.Debug("request_uri", uri, "request_method", method, "request_ip", ip, "response_status", status, "request_body", reqBodyBuffer.String(), "response_body", resBodyBuffer.String())
+		defer s.log.Debug(uri, "request_method", method, "request_ip", ip, "response_status", fmt.Sprintf("%d", status), "request_body", reqBodyBuffer.String(), "response_body", resBodyBuffer.String())
 		return next(c)
 	}
 }
