@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	CodeSuccess  = 0
-	CodeFail     = 1
-	CodeError    = 2
-	CodeAbnormal = 3
-	CodeBad      = 4
+	CodeSuccess  = 0 // 处理成功
+	CodeFail     = 1 // 处理失败
+	CodeError    = 2 // 服务器出错
+	CodeAbnormal = 3 // 其它业务异常
+	CodeBad      = 4 // 客户端参数异常
 )
 
 const (
@@ -28,8 +28,6 @@ type Resp struct {
 type Ctx struct {
 	echo.Context
 
-	logger echo.Logger
-
 	ReqId string // request id
 
 	Uid    int64  // store account id for int64 type
@@ -37,18 +35,24 @@ type Ctx struct {
 
 	status int // http status code
 
-	Resp *Resp // response content
+	resp *Resp // response content
 }
 
-func NewCtx(
-	context echo.Context,
-	logger echo.Logger,
-) *Ctx {
-	return &Ctx{
-		Context: context,
-		logger:  logger,
-		Resp:    &Resp{},
-	}
+func NewCtx() *Ctx {
+	return &Ctx{resp: &Resp{}}
+}
+
+// clean clear the property values of the current object
+func (s *Ctx) clean() {
+	s.Context = nil
+	s.ReqId = ""
+	s.Uid = 0
+	s.UidStr = ""
+	s.status = 0
+	s.resp.Code = 0
+	s.resp.Msg = ""
+	s.resp.Bag = nil
+	s.resp.Count = nil
 }
 
 func (s *Ctx) Status(status int) *Ctx {
@@ -57,43 +61,53 @@ func (s *Ctx) Status(status int) *Ctx {
 }
 
 func (s *Ctx) Code(cod int) *Ctx {
-	s.Resp.Code = cod
+	s.resp.Code = cod
 	return s
 }
 
 func (s *Ctx) Msg(msg string) *Ctx {
-	s.Resp.Msg = msg
+	s.resp.Msg = msg
 	return s
 }
 
 func (s *Ctx) Bag(bag interface{}) *Ctx {
-	s.Resp.Bag = bag
+	s.resp.Bag = bag
 	return s
 }
 
 func (s *Ctx) Count(count int64) *Ctx {
-	s.Resp.Count = &count
+	s.resp.Count = &count
 	return s
 }
 
 func (s *Ctx) Json() error {
-	return s.JSON(s.status, s.Resp)
+	defer s.clean()
+	return s.JSON(s.status, s.resp)
 }
 
 func (s *Ctx) Ok() error {
 	return s.Status(http.StatusOK).Code(CodeSuccess).Msg(MsgSuccess).Json()
 }
 
-func (s *Ctx) Bad(err error) error {
-	if s.logger != nil && err != nil {
-		s.logger.Warnf("http request(%s) bad: %s", s.Context.Path(), err.Error())
+func (s *Ctx) Abn(err error) error {
+	msg := err.Error()
+	if logger := s.Logger(); logger != nil {
+		logger.Warnf("%s --> %s", s.Context.Path(), msg)
 	}
-	return s.Status(http.StatusOK).Code(CodeBad).Msg(err.Error()).Json()
+	return s.Status(http.StatusOK).Code(CodeAbnormal).Msg(msg).Json()
+}
+
+func (s *Ctx) Bad(err error) error {
+	msg := err.Error()
+	if logger := s.Logger(); logger != nil {
+		logger.Warnf("%s --> %s", s.Context.Path(), msg)
+	}
+	return s.Status(http.StatusOK).Code(CodeBad).Msg(msg).Json()
 }
 
 func (s *Ctx) Err(err error) error {
-	if s.logger != nil && err != nil {
-		s.logger.Errorf("http request(%s) error: %s", s.Context.Path(), err.Error())
+	if logger := s.Logger(); logger != nil {
+		logger.Errorf("%s --> %s", s.Context.Path(), err.Error())
 	}
 	return s.Status(http.StatusInternalServerError).Code(CodeError).Msg(http.StatusText(http.StatusInternalServerError)).Json()
 }

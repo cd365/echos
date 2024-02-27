@@ -54,7 +54,7 @@ func NewBinder() (echo.Binder, error) {
 // Bind for bind and validate request parameter
 func (s *Binder) Bind(i interface{}, c echo.Context) error {
 	if err := s.defaultBuilder.Bind(i, c); err != nil {
-		return err
+		return fmt.Errorf("param format parsing failed")
 	}
 	refValue := reflect.ValueOf(i)
 	refKind := refValue.Kind()
@@ -89,19 +89,14 @@ func (s *Binder) validator(i interface{}) error {
 	if refKind != reflect.Struct {
 		return nil
 	}
-	var errs []string
 	if err := s.validate.Struct(i); err != nil {
-		var ves validator.ValidationErrors
-		ok := errors.As(err, &ves)
-		if !ok {
+		var tmp validator.ValidationErrors
+		if !errors.As(err, &tmp) {
 			return err
 		}
-		for _, v := range ves {
-			errs = append(errs, v.Translate(s.trans))
+		for _, v := range tmp {
+			return fmt.Errorf("%s", v.Translate(s.trans)) // try to translate the error message
 		}
-	}
-	if len(errs) != 0 {
-		return errors.New(strings.Join(errs, "\n"))
 	}
 	return nil
 }
